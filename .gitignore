@@ -1,4 +1,4 @@
 .worktrees/
 work/
-gutil
-gutil.exe
+/gutil
+/gutil.exe
