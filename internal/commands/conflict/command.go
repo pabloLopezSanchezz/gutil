@@ -10,6 +10,7 @@ import (
 
 const usage = `Usage:
   gutil conflict <source> <target>
+  gutil conflict <source> <target> --new-branch
   gutil conflict --status
   gutil conflict --continue
   gutil conflict --abort`
@@ -29,11 +30,13 @@ func (c *Command) Run(args []string) int {
 		err = c.Workflow.Abort(ctx)
 	case len(args) == 1 && args[0] == "--continue":
 		err = c.Workflow.Continue(ctx)
-	case len(args) == 2 && validArgument(args[0]) && validArgument(args[1]) && args[0] != args[1]:
-		err = c.Workflow.Prepare(ctx, args[0], args[1])
 	default:
-		c.Output.Error(usage)
-		return 2
+		source, target, options, ok := parsePrepareArgs(args)
+		if !ok {
+			c.Output.Error(usage)
+			return 2
+		}
+		err = c.Workflow.Prepare(ctx, source, target, options)
 	}
 	if err != nil {
 		c.Output.Error(describeError(err))

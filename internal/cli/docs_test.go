@@ -18,6 +18,7 @@ func TestReadmeDocumentsPublicContract(t *testing.T) {
 		"gutil version", "origin", "--no-commit --no-ff", "untracked", "Visual Studio Code",
 		"macOS", "Linux", "Windows", "gutil conflict feature/ABC develop", "develop into feature/ABC",
 		"gutil conflict --continue", "already staged", "[gUtil] Conflict Resolution", "push origin", "retry only the push",
+		"--new-branch", "--newBranch", "feature/conflictResolution", "protected source branch", "already exists", "does not delete the generated branch",
 	} {
 		if !strings.Contains(text, required) {
 			t.Errorf("README does not contain %q", required)

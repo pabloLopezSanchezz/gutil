@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	gitpkg "github.com/pablo/gutil/internal/git"
 	"github.com/pablo/gutil/internal/output"
@@ -31,6 +32,8 @@ type GitService interface {
 	PushOrigin(context.Context, string) error
 	RemoteContains(context.Context, string, string) (bool, error)
 	GitPath(context.Context, string) (string, error)
+	ValidateBranch(context.Context, string) error
+	CreateBranch(context.Context, string) error
 }
 
 type Editor interface {
@@ -42,9 +45,10 @@ type Workflow struct {
 	Editor Editor
 	Output output.Printer
 	Store  *StateStore
+	Clock  func() time.Time
 }
 
-func (w Workflow) Prepare(ctx context.Context, source, target string) error {
+func (w Workflow) Prepare(ctx context.Context, source, target string, options PrepareOptions) error {
 	if err := w.preflight(ctx); err != nil {
 		return err
 	}
@@ -79,6 +83,40 @@ func (w Workflow) Prepare(ctx context.Context, source, target string) error {
 	if err != nil {
 		return err
 	}
+	effectiveSource := source
+	generated := false
+	if options.NewBranch {
+		now := time.Now()
+		if w.Clock != nil {
+			now = w.Clock()
+		}
+		effectiveSource = resolutionBranchName(target, now)
+		if err := w.Git.ValidateBranch(ctx, effectiveSource); err != nil {
+			return err
+		}
+		location, err := w.Git.BranchLocation(ctx, effectiveSource)
+		if err != nil {
+			return err
+		}
+		if location != gitpkg.Missing {
+			return fmt.Errorf("generated conflict resolution branch %q already exists locally or in origin", effectiveSource)
+		}
+		if err := w.Git.CreateBranch(ctx, effectiveSource); err != nil {
+			return err
+		}
+		createdBranch, err := w.Git.CurrentBranch(ctx)
+		if err != nil {
+			return err
+		}
+		createdCommit, err := w.Git.CurrentCommit(ctx)
+		if err != nil {
+			return err
+		}
+		if createdBranch != effectiveSource || createdCommit != sourceCommit {
+			return fmt.Errorf("generated branch identity does not match the updated source commit")
+		}
+		generated = true
+	}
 
 	mergeErr := w.Git.MergeNoCommit(ctx, target)
 	files, conflictErr := w.Git.ConflictFiles(ctx)
@@ -90,7 +128,7 @@ func (w Workflow) Prepare(ctx context.Context, source, target string) error {
 		if err != nil {
 			return err
 		}
-		if err := store.Save(ConflictState{Version: stateVersion, SourceBranch: source, TargetBranch: target, SourceCommit: sourceCommit, MergeCommit: mergeCommit, ConflictFiles: files, Phase: PhaseResolving}); err != nil {
+		if err := store.Save(ConflictState{Version: stateVersion, OriginalSourceBranch: source, SourceBranch: effectiveSource, TargetBranch: target, SourceCommit: sourceCommit, MergeCommit: mergeCommit, ConflictFiles: files, Phase: PhaseResolving, GeneratedBranch: generated}); err != nil {
 			return err
 		}
 		w.Output.Warning(fmt.Sprintf("%d conflicting file(s) found:", len(files)))

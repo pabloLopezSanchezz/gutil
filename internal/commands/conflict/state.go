@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	stateVersion   = 1
+	stateVersion   = 2
 	PhaseResolving = "resolving"
 	PhaseCommitted = "committed"
 )
@@ -22,14 +22,16 @@ var (
 )
 
 type ConflictState struct {
-	Version       int      `json:"version"`
-	SourceBranch  string   `json:"sourceBranch"`
-	TargetBranch  string   `json:"targetBranch"`
-	SourceCommit  string   `json:"sourceCommit"`
-	MergeCommit   string   `json:"mergeCommit"`
-	ConflictFiles []string `json:"conflictFiles"`
-	Phase         string   `json:"phase"`
-	Commit        string   `json:"commit,omitempty"`
+	Version              int      `json:"version"`
+	OriginalSourceBranch string   `json:"originalSourceBranch"`
+	SourceBranch         string   `json:"sourceBranch"`
+	TargetBranch         string   `json:"targetBranch"`
+	SourceCommit         string   `json:"sourceCommit"`
+	MergeCommit          string   `json:"mergeCommit"`
+	ConflictFiles        []string `json:"conflictFiles"`
+	Phase                string   `json:"phase"`
+	Commit               string   `json:"commit,omitempty"`
+	GeneratedBranch      bool     `json:"generatedBranch"`
 }
 
 type StateStore struct{ Path string }
@@ -117,8 +119,14 @@ func normalizeAndValidate(state *ConflictState) error {
 	if state.Version != stateVersion {
 		return fmt.Errorf("%w: unsupported version %d", ErrInvalidState, state.Version)
 	}
-	if strings.TrimSpace(state.SourceBranch) == "" || strings.TrimSpace(state.TargetBranch) == "" || strings.TrimSpace(state.SourceCommit) == "" || strings.TrimSpace(state.MergeCommit) == "" {
+	if state.OriginalSourceBranch == "" {
+		state.OriginalSourceBranch = state.SourceBranch
+	}
+	if strings.TrimSpace(state.OriginalSourceBranch) == "" || strings.TrimSpace(state.SourceBranch) == "" || strings.TrimSpace(state.TargetBranch) == "" || strings.TrimSpace(state.SourceCommit) == "" || strings.TrimSpace(state.MergeCommit) == "" {
 		return fmt.Errorf("%w: required identity is missing", ErrInvalidState)
+	}
+	if state.GeneratedBranch && state.OriginalSourceBranch == state.SourceBranch {
+		return fmt.Errorf("%w: generated branch matches original source", ErrInvalidState)
 	}
 	set := make(map[string]struct{}, len(state.ConflictFiles))
 	for _, file := range state.ConflictFiles {

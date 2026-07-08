@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	gitpkg "github.com/pablo/gutil/internal/git"
 	"github.com/pablo/gutil/internal/output"
@@ -145,6 +146,68 @@ func TestIntegrationContinueRetriesRejectedPushWithoutSecondCommit(t *testing.T)
 	}
 	if _, err := os.Stat(statePath); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("state still exists: %v", err)
+	}
+}
+
+func TestIntegrationNewBranchPreservesProtectedSource(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is unavailable")
+	}
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	repo := filepath.Join(root, "repo")
+	runGit(t, root, "init", "--bare", origin)
+	runGit(t, root, "clone", origin, repo)
+	runGit(t, repo, "config", "user.name", "gutil-test")
+	runGit(t, repo, "config", "user.email", "gutil-test@example.invalid")
+	runGit(t, repo, "checkout", "-b", "main")
+	writeFile(t, filepath.Join(repo, "shared.txt"), "base\n")
+	runGit(t, repo, "add", "shared.txt")
+	runGit(t, repo, "commit", "-m", "initial")
+	runGit(t, repo, "push", "-u", "origin", "main")
+	runGit(t, repo, "checkout", "-b", "develop")
+	writeFile(t, filepath.Join(repo, "shared.txt"), "target\n")
+	runGit(t, repo, "commit", "-am", "target change")
+	runGit(t, repo, "push", "-u", "origin", "develop")
+	runGit(t, repo, "checkout", "main")
+	runGit(t, repo, "checkout", "-b", "feature/a")
+	writeFile(t, filepath.Join(repo, "shared.txt"), "source\n")
+	runGit(t, repo, "commit", "-am", "source change")
+	runGit(t, repo, "push", "-u", "origin", "feature/a")
+	protectedCommit := strings.TrimSpace(runGit(t, repo, "rev-parse", "feature/a"))
+
+	var stdout, stderr bytes.Buffer
+	runner := processpkg.OSRunner{}
+	printer := output.Printer{Stdout: &stdout, Stderr: &stderr}
+	workflow := Workflow{Git: gitpkg.NewClient(runner, repo), Editor: &fakeEditor{}, Output: printer, Clock: func() time.Time { return time.Date(2026, time.July, 8, 12, 0, 0, 0, time.Local) }}
+	command := &Command{Workflow: workflow, Output: printer}
+	generated := "feature/conflictResolution/develop/08072026"
+	if code := command.Run([]string{"feature/a", "develop", "--new-branch"}); code != 0 {
+		t.Fatalf("prepare code = %d: %s", code, stderr.String())
+	}
+	if branch := strings.TrimSpace(runGit(t, repo, "branch", "--show-current")); branch != generated {
+		t.Fatalf("branch = %q", branch)
+	}
+	writeFile(t, filepath.Join(repo, "shared.txt"), "resolved\n")
+	runGit(t, repo, "add", "shared.txt")
+	if code := command.Run([]string{"--continue"}); code != 0 {
+		t.Fatalf("continue code = %d: %s", code, stderr.String())
+	}
+	generatedCommit := strings.TrimSpace(runGit(t, repo, "rev-parse", generated))
+	remoteGenerated := strings.TrimSpace(runGit(t, repo, "rev-parse", "origin/"+generated))
+	if generatedCommit != remoteGenerated {
+		t.Fatalf("generated local/remote = %s/%s", generatedCommit, remoteGenerated)
+	}
+	if local := strings.TrimSpace(runGit(t, repo, "rev-parse", "feature/a")); local != protectedCommit {
+		t.Fatalf("local protected branch changed: %s", local)
+	}
+	if remote := strings.TrimSpace(runGit(t, repo, "rev-parse", "origin/feature/a")); remote != protectedCommit {
+		t.Fatalf("remote protected branch changed: %s", remote)
+	}
+	runGit(t, repo, "checkout", "feature/a")
+	stderr.Reset()
+	if code := command.Run([]string{"feature/a", "develop", "--new-branch"}); code != 1 || !strings.Contains(stderr.String(), "already exists") {
+		t.Fatalf("collision code/output = %d/%q", code, stderr.String())
 	}
 }
 

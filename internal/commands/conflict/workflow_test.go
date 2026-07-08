@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	gitpkg "github.com/pablo/gutil/internal/git"
 	"github.com/pablo/gutil/internal/output"
@@ -130,6 +131,16 @@ func (f *fakeGit) RemoteContains(context.Context, string, string) (bool, error) 
 func (f *fakeGit) GitPath(context.Context, string) (string, error) {
 	return "", errors.New("test workflow must inject a store")
 }
+func (f *fakeGit) ValidateBranch(_ context.Context, branch string) error {
+	return f.record("validate branch " + branch)
+}
+func (f *fakeGit) CreateBranch(_ context.Context, branch string) error {
+	if err := f.record("create branch " + branch); err != nil {
+		return err
+	}
+	f.branch = branch
+	return nil
+}
 
 type fakeEditor struct {
 	calls int
@@ -173,6 +184,24 @@ func TestPrepareRunsExpectedSequenceAndOpensEditorForConflicts(t *testing.T) {
 	}
 }
 
+func TestPrepareCreatesDatedBranchFromUpdatedSource(t *testing.T) {
+	g := &fakeGit{clean: true, locations: map[string]gitpkg.BranchLocation{"develop": gitpkg.Local, "feature/a": gitpkg.Local}, conflicts: []string{"file.txt"}, mergeErr: errors.New("conflict"), branch: "feature/a", currentCommit: "source", mergeHead: "target"}
+	command, _, _, store := newCommand(t, g, &fakeEditor{})
+	command.Workflow.Clock = func() time.Time { return time.Date(2026, time.July, 8, 12, 0, 0, 0, time.Local) }
+	if code := command.Run([]string{"feature/a", "develop", "--new-branch"}); code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	generated := "feature/conflictResolution/develop/08072026"
+	calls := strings.Join(g.calls, ",")
+	if !strings.Contains(calls, "current commit,validate branch "+generated+",locate "+generated+",create branch "+generated+",current branch,current commit,merge develop") {
+		t.Fatalf("calls = %s", calls)
+	}
+	state, err := store.Load()
+	if err != nil || state.SourceBranch != generated || state.OriginalSourceBranch != "feature/a" || !state.GeneratedBranch {
+		t.Fatalf("state = %#v, err = %v", state, err)
+	}
+}
+
 func TestPrepareStopsForDirtyTree(t *testing.T) {
 	g := &fakeGit{clean: false, dirty: "?? local.txt\n"}
 	command, _, stderr, _ := newCommand(t, g, &fakeEditor{})
@@ -207,7 +236,7 @@ func TestStatusAndAbort(t *testing.T) {
 func TestStatusReportsCommittedGUtilStateWithoutUnmergedFiles(t *testing.T) {
 	g := &fakeGit{status: "On branch feature/a\n"}
 	command, stdout, _, store := newCommand(t, g, &fakeEditor{})
-	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseCommitted, Commit: "resolved"}); err != nil {
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseCommitted, Commit: "resolved"}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"--status"}); code != 0 {
@@ -232,7 +261,7 @@ func TestEditorFailureIsWarningNotCommandFailure(t *testing.T) {
 func TestCommandContinueCommitsAndPushesStagedResolution(t *testing.T) {
 	g := &fakeGit{state: gitpkg.MergeOperation, branch: "feature/a", currentCommit: "source", mergeHead: "target", staged: []string{"a.txt", "b.txt"}}
 	command, _, _, store := newCommand(t, g, &fakeEditor{})
-	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt", "b.txt"}, Phase: PhaseResolving}); err != nil {
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt", "b.txt"}, Phase: PhaseResolving}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"--continue"}); code != 0 {
@@ -252,7 +281,7 @@ func TestCommandContinueCommitsAndPushesStagedResolution(t *testing.T) {
 func TestContinueListsUnresolvedFiles(t *testing.T) {
 	g := &fakeGit{state: gitpkg.MergeOperation, branch: "feature/a", currentCommit: "source", mergeHead: "target", conflicts: []string{"a.txt"}}
 	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
-	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"--continue"}); code != 1 || !strings.Contains(stderr.String(), "a.txt") {
@@ -266,7 +295,7 @@ func TestContinueListsUnresolvedFiles(t *testing.T) {
 func TestContinuePreservesCommittedStateWhenPushFails(t *testing.T) {
 	g := &fakeGit{state: gitpkg.MergeOperation, branch: "feature/a", currentCommit: "source", mergeHead: "target", staged: []string{"a.txt"}, pushErr: errors.New("rejected")}
 	command, _, _, store := newCommand(t, g, &fakeEditor{})
-	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"--continue"}); code != 1 {
@@ -284,7 +313,7 @@ func TestContinuePreservesCommittedStateWhenPushFails(t *testing.T) {
 func TestContinueRejectsResolvedButUnstagedFile(t *testing.T) {
 	g := &fakeGit{state: gitpkg.MergeOperation, branch: "feature/a", currentCommit: "source", mergeHead: "target", staged: []string{"other.txt"}}
 	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
-	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"--continue"}); code != 1 || !strings.Contains(stderr.String(), "a.txt") || !strings.Contains(stderr.String(), "not staged") {
@@ -295,7 +324,7 @@ func TestContinueRejectsResolvedButUnstagedFile(t *testing.T) {
 func TestContinueCommittedStateRetriesOnlyPush(t *testing.T) {
 	g := &fakeGit{state: gitpkg.NoOperation, branch: "feature/a", currentCommit: "resolved"}
 	command, _, _, store := newCommand(t, g, &fakeEditor{})
-	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseCommitted, Commit: "resolved"}); err != nil {
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseCommitted, Commit: "resolved"}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"--continue"}); code != 0 {
