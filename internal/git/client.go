@@ -220,24 +220,6 @@ func (c Client) revision(ctx context.Context, revision, operation string) (strin
 	return value, nil
 }
 
-func splitPaths(output string) []string {
-	var paths []string
-	for _, line := range strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n") {
-		if line = strings.TrimSpace(line); line != "" {
-			paths = append(paths, line)
-		}
-	}
-	return paths
-}
-
-func (c Client) StagedFiles(ctx context.Context) ([]string, error) {
-	result, err := c.run(ctx, "list staged files", "diff", "--cached", "--name-only", "--diff-filter=ACDMR")
-	if err != nil {
-		return nil, err
-	}
-	return splitPaths(result.Stdout), nil
-}
-
 func (c Client) Commit(ctx context.Context, message string) error {
 	if strings.TrimSpace(message) == "" {
 		return fmt.Errorf("commit message must not be empty")

@@ -27,7 +27,6 @@ type GitService interface {
 	CurrentBranch(context.Context) (string, error)
 	CurrentCommit(context.Context) (string, error)
 	MergeHead(context.Context) (string, error)
-	StagedFiles(context.Context) ([]string, error)
 	Commit(context.Context, string) error
 	PushOrigin(context.Context, string) error
 	RemoteContains(context.Context, string, string) (bool, error)
@@ -199,14 +198,6 @@ func (w Workflow) continueResolving(ctx context.Context, store StateStore, state
 	if len(unresolved) > 0 {
 		return fmt.Errorf("resolve and stage these remaining conflicts in Visual Studio Code:\n%s", formatPaths(unresolved))
 	}
-	staged, err := w.Git.StagedFiles(ctx)
-	if err != nil {
-		return err
-	}
-	missing := missingPaths(state.ConflictFiles, staged)
-	if len(missing) > 0 {
-		return fmt.Errorf("these resolved conflict files are not staged:\n%s\nStage them in Visual Studio Code and run --continue again", formatPaths(missing))
-	}
 	message := conflictCommitMessage(len(state.ConflictFiles))
 	if err := w.Git.Commit(ctx, message); err != nil {
 		return err
@@ -292,20 +283,6 @@ func conflictCommitMessage(count int) string {
 		return "[gUtil] Conflict Resolution - 1 file fixed."
 	}
 	return fmt.Sprintf("[gUtil] Conflict Resolution - %d files fixed.", count)
-}
-
-func missingPaths(required, actual []string) []string {
-	set := make(map[string]struct{}, len(actual))
-	for _, path := range actual {
-		set[path] = struct{}{}
-	}
-	var missing []string
-	for _, path := range required {
-		if _, ok := set[path]; !ok {
-			missing = append(missing, path)
-		}
-	}
-	return missing
 }
 
 func formatPaths(paths []string) string {
