@@ -204,6 +204,20 @@ func TestStatusAndAbort(t *testing.T) {
 	}
 }
 
+func TestStatusReportsCommittedGUtilStateWithoutUnmergedFiles(t *testing.T) {
+	g := &fakeGit{status: "On branch feature/a\n"}
+	command, stdout, _, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 1, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseCommitted, Commit: "resolved"}); err != nil {
+		t.Fatal(err)
+	}
+	if code := command.Run([]string{"--status"}); code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.Contains(stdout.String(), "committed") || !strings.Contains(stdout.String(), "feature/a -> develop") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
 func TestEditorFailureIsWarningNotCommandFailure(t *testing.T) {
 	g := &fakeGit{clean: true, locations: map[string]gitpkg.BranchLocation{"develop": gitpkg.Local, "feature/a": gitpkg.Local}, conflicts: []string{"file.txt"}, mergeErr: errors.New("conflict"), branch: "feature/a", currentCommit: "source", mergeHead: "target"}
 	command, _, stderr, _ := newCommand(t, g, &fakeEditor{err: errors.New("code missing")})

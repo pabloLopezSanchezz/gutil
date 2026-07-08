@@ -334,11 +334,11 @@ func (w Workflow) Status(ctx context.Context) error {
 	}
 	if len(files) == 0 {
 		w.Output.Info("No unmerged files found.")
-		return nil
-	}
-	w.Output.Info("Unmerged files:")
-	for _, file := range files {
-		w.Output.Info("  " + file)
+	} else {
+		w.Output.Info("Unmerged files:")
+		for _, file := range files {
+			w.Output.Info("  " + file)
+		}
 	}
 	store, storeErr := w.stateStore(ctx)
 	if storeErr != nil {
