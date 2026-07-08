@@ -213,7 +213,7 @@ func splitPaths(output string) []string {
 }
 
 func (c Client) StagedFiles(ctx context.Context) ([]string, error) {
-	result, err := c.run(ctx, "list staged files", "diff", "--cached", "--name-only", "--diff-filter=ACMR")
+	result, err := c.run(ctx, "list staged files", "diff", "--cached", "--name-only", "--diff-filter=ACDMR")
 	if err != nil {
 		return nil, err
 	}

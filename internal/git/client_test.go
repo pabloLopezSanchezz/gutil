@@ -105,7 +105,7 @@ func TestContinuationGitCommands(t *testing.T) {
 		{"current branch", "feature/a\n", func(c Client) error { _, err := c.CurrentBranch(context.Background()); return err }, []string{"symbolic-ref", "--quiet", "--short", "HEAD"}},
 		{"current commit", "abc\n", func(c Client) error { _, err := c.CurrentCommit(context.Background()); return err }, []string{"rev-parse", "HEAD"}},
 		{"merge head", "def\n", func(c Client) error { _, err := c.MergeHead(context.Background()); return err }, []string{"rev-parse", "MERGE_HEAD"}},
-		{"staged files", "a.txt\n", func(c Client) error { _, err := c.StagedFiles(context.Background()); return err }, []string{"diff", "--cached", "--name-only", "--diff-filter=ACMR"}},
+		{"staged files", "a.txt\n", func(c Client) error { _, err := c.StagedFiles(context.Background()); return err }, []string{"diff", "--cached", "--name-only", "--diff-filter=ACDMR"}},
 		{"commit", "", func(c Client) error { return c.Commit(context.Background(), "message") }, []string{"commit", "-m", "message"}},
 		{"push", "", func(c Client) error { return c.PushOrigin(context.Background(), "feature/a") }, []string{"push", "origin", "feature/a"}},
 		{"git path", ".git/gutil/conflict-state.json\n", func(c Client) error {
