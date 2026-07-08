@@ -38,6 +38,7 @@ go install github.com/pablo/gutil/cmd/gutil@latest
 
 ```text
 gutil conflict <source> <target>
+gutil conflict <source> <target> --new-branch
 gutil conflict --status
 gutil conflict --continue
 gutil conflict --abort
@@ -78,6 +79,22 @@ The command verifies that the merge was started by gUtil, checks that no unresol
 ```
 
 It then runs `git push origin <source-branch>`. If commit succeeds but push fails, run `gutil conflict --continue` again to retry only the push; it will not create a second commit.
+
+### Resolve on a new branch
+
+When the source is a protected source branch that you cannot push, use:
+
+```sh
+gutil conflict feature/ABC develop --new-branch
+```
+
+`--newBranch` is accepted as an alias, but `--new-branch` is the documented form. After updating source and target, gUtil creates a branch such as:
+
+```text
+feature/conflictResolution/develop/08072026
+```
+
+The date uses the local timezone. If that branch already exists locally or in `origin`, gUtil stops without changing it. Resolve and stage conflicts normally, then run `gutil conflict --continue`; commit and push target only the generated branch. The original source branch is never pushed. `gutil conflict --abort` cancels the merge but does not delete the generated branch.
 
 ## Recovery
 

@@ -11,4 +11,5 @@ All notable changes follow semantic versioning.
 - Safe branch synchronization through `origin`.
 - Conditional Visual Studio Code launch.
 - Staged conflict continuation with a custom commit message and safe push-only retry.
+- Dated conflict-resolution branches for protected source branches.
 - macOS, Linux, and Windows installers.
