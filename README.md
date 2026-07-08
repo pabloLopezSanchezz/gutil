@@ -72,13 +72,15 @@ Resolve every conflict in Visual Studio Code and ensure the resolved files are a
 gutil conflict --continue
 ```
 
-The command verifies that the merge was started by gUtil, checks that no unresolved or unstaged conflict files remain, and creates a commit such as:
+The command verifies that the merge was started by gUtil and that Git has no unresolved index entries, then creates a commit such as:
 
 ```text
 [gUtil] Conflict Resolution - 4 files fixed.
 ```
 
 It then runs `git push origin <source-branch>`. If commit succeeds but push fails, run `gutil conflict --continue` again to retry only the push; it will not create a second commit.
+
+Git may omit a resolved file from the cached diff when its final content is identical to the source branch. gUtil therefore trusts Git's unmerged-index state rather than requiring every original conflict path to appear in `git diff --cached`.
 
 ### Resolve on a new branch
 

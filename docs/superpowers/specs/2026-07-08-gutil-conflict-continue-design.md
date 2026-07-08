@@ -47,7 +47,7 @@ For state in the `resolving` phase, `gutil conflict --continue` performs these s
 4. Verify that the current branch equals the stored source branch.
 5. Verify that the current `HEAD` equals the stored source commit and `MERGE_HEAD` equals the stored target merge commit.
 6. Query unmerged files. If any remain, print their names and stop without committing or pushing.
-7. Query staged paths. Verify that every stored conflicted path is staged. If any are missing, print their names and instruct the user to stage them in Visual Studio Code.
+7. Trust Git's unmerged-index result. When no unmerged entries remain, every conflict has been resolved in the index. Do not require original conflict paths to appear in the cached diff because a resolution identical to `HEAD` legitimately produces no cached path.
 8. Run:
 
 ```text
@@ -78,7 +78,7 @@ If `HEAD` no longer matches the stored committed identifier, gUtil stops rather 
 
 `gutil conflict --abort` retains its requirement for an active merge. After `git merge --abort` succeeds, it deletes matching gUtil conflict state. It does not delete state when Git cannot abort.
 
-`gutil conflict --status` additionally reports whether gUtil owns the active conflict workflow, its source and target branches, its phase, total original conflict count, unresolved count, and conflicted paths not yet staged. Invalid state is reported as an actionable error rather than ignored.
+`gutil conflict --status` additionally reports whether gUtil owns the active conflict workflow, its source and target branches, its phase, total original conflict count, and unresolved count. Invalid state is reported as an actionable error rather than ignored.
 
 ## Safety and Failures
 
@@ -88,7 +88,7 @@ Every failed validation stops before commit. Commit failure leaves the resolving
 
 ## Architecture Changes
 
-Add a focused state component under `internal/commands/conflict` responsible for JSON validation, atomic persistence, and removal. Extend the typed Git client with current branch, current commit, merge-head commit, staged paths, commit-with-message, remote containment, and push-origin operations.
+Add a focused state component under `internal/commands/conflict` responsible for JSON validation, atomic persistence, and removal. Extend the typed Git client with current branch, current commit, merge-head commit, commit-with-message, remote containment, and push-origin operations.
 
 The workflow remains responsible for orchestration. The state store does not invoke Git, and the Git client does not understand gUtil state.
 
@@ -100,7 +100,7 @@ Unit tests cover:
 - Atomic state read, write, validation, and removal.
 - Refusal of manual merges and mismatched branches or commits.
 - Listing unresolved conflicts.
-- Listing original conflict files that are not staged.
+- Accepting an original conflict resolved to content identical to `HEAD`, which disappears from the cached diff.
 - Singular and plural commit messages.
 - Commit failure without push.
 - Push failure after commit and push-only retry.
@@ -118,7 +118,7 @@ README command reference and recovery instructions include `--continue`. The cha
 
 1. `--continue` works only for conflict merges initiated by gUtil.
 2. It never stages files automatically.
-3. It lists and rejects unresolved or unstaged conflict files.
+3. It lists and rejects unresolved conflict files based on Git's unmerged index.
 4. It creates exactly one custom conflict-resolution commit.
 5. It pushes only the stored source branch to `origin`.
 6. A failed push can be retried without creating a second commit.

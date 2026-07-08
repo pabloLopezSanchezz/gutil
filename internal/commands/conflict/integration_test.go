@@ -111,8 +111,13 @@ func TestIntegrationContinueRetriesRejectedPushWithoutSecondCommit(t *testing.T)
 		t.Fatalf("prepare code = %d: %s", code, stderr.String())
 	}
 
-	writeFile(t, filepath.Join(repo, "shared.txt"), "resolved\n")
+	// Resolve to the source (HEAD) version. Git records the conflict as resolved,
+	// but the path intentionally disappears from the cached diff.
+	writeFile(t, filepath.Join(repo, "shared.txt"), "source\n")
 	runGit(t, repo, "add", "shared.txt")
+	if staged := strings.TrimSpace(runGit(t, repo, "diff", "--cached", "--name-only")); staged != "" {
+		t.Fatalf("expected no cached diff for ours resolution, got %q", staged)
+	}
 	hook := filepath.Join(origin, "hooks", "pre-receive")
 	writeFile(t, hook, "#!/bin/sh\necho rejected >&2\nexit 1\n")
 	if err := os.Chmod(hook, 0o755); err != nil {
