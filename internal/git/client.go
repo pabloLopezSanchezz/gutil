@@ -122,6 +122,24 @@ func (c Client) CreateTrackingBranch(ctx context.Context, branch string) error {
 	return err
 }
 
+func (c Client) ValidateBranch(ctx context.Context, branch string) error {
+	if !validBranch(branch) {
+		return ErrInvalidBranch
+	}
+	if _, err := c.run(ctx, "validate branch name", "check-ref-format", "--branch", branch); err != nil {
+		return fmt.Errorf("%w: %q: %v", ErrInvalidBranch, branch, err)
+	}
+	return nil
+}
+
+func (c Client) CreateBranch(ctx context.Context, branch string) error {
+	if !validBranch(branch) {
+		return ErrInvalidBranch
+	}
+	_, err := c.run(ctx, "create branch", "checkout", "-b", branch)
+	return err
+}
+
 func (c Client) Checkout(ctx context.Context, branch string) error {
 	if !validBranch(branch) {
 		return ErrInvalidBranch

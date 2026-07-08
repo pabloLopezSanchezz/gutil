@@ -137,3 +137,20 @@ func TestRemoteContainsTreatsExitOneAsNotContained(t *testing.T) {
 		t.Fatalf("args = %#v", got)
 	}
 }
+
+func TestCreateBranchAndValidateBranchCommands(t *testing.T) {
+	runner := &recordedRunner{}
+	client := NewClient(runner, "/repo")
+	if err := client.ValidateBranch(context.Background(), "feature/new"); err != nil {
+		t.Fatal(err)
+	}
+	if err := client.CreateBranch(context.Background(), "feature/new"); err != nil {
+		t.Fatal(err)
+	}
+	want := [][]string{{"check-ref-format", "--branch", "feature/new"}, {"checkout", "-b", "feature/new"}}
+	for i := range want {
+		if !reflect.DeepEqual(runner.commands[i].Args, want[i]) {
+			t.Fatalf("command %d = %#v", i, runner.commands[i].Args)
+		}
+	}
+}
