@@ -170,6 +170,105 @@ func (c Client) AbortMerge(ctx context.Context) error {
 	return err
 }
 
+func (c Client) CurrentBranch(ctx context.Context) (string, error) {
+	result, err := c.run(ctx, "read current branch", "symbolic-ref", "--quiet", "--short", "HEAD")
+	if err != nil {
+		return "", err
+	}
+	branch := strings.TrimSpace(result.Stdout)
+	if !validBranch(branch) {
+		return "", ErrInvalidBranch
+	}
+	return branch, nil
+}
+
+func (c Client) CurrentCommit(ctx context.Context) (string, error) {
+	return c.revision(ctx, "HEAD", "read current commit")
+}
+
+func (c Client) MergeHead(ctx context.Context) (string, error) {
+	return c.revision(ctx, "MERGE_HEAD", "read merge head")
+}
+
+func (c Client) revision(ctx context.Context, revision, operation string) (string, error) {
+	result, err := c.run(ctx, operation, "rev-parse", revision)
+	if err != nil {
+		return "", err
+	}
+	value := strings.TrimSpace(result.Stdout)
+	if value == "" {
+		return "", fmt.Errorf("git %s returned an empty revision", operation)
+	}
+	return value, nil
+}
+
+func splitPaths(output string) []string {
+	var paths []string
+	for _, line := range strings.Split(strings.ReplaceAll(output, "\r\n", "\n"), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			paths = append(paths, line)
+		}
+	}
+	return paths
+}
+
+func (c Client) StagedFiles(ctx context.Context) ([]string, error) {
+	result, err := c.run(ctx, "list staged files", "diff", "--cached", "--name-only", "--diff-filter=ACDMR")
+	if err != nil {
+		return nil, err
+	}
+	return splitPaths(result.Stdout), nil
+}
+
+func (c Client) Commit(ctx context.Context, message string) error {
+	if strings.TrimSpace(message) == "" {
+		return fmt.Errorf("commit message must not be empty")
+	}
+	_, err := c.run(ctx, "commit conflict resolution", "commit", "-m", message)
+	return err
+}
+
+func (c Client) PushOrigin(ctx context.Context, branch string) error {
+	if !validBranch(branch) {
+		return ErrInvalidBranch
+	}
+	_, err := c.run(ctx, "push source branch", "push", "origin", branch)
+	return err
+}
+
+func (c Client) RemoteContains(ctx context.Context, commit, branch string) (bool, error) {
+	if strings.TrimSpace(commit) == "" || !validBranch(branch) {
+		return false, ErrInvalidBranch
+	}
+	_, err := c.run(ctx, "check remote commit", "merge-base", "--is-ancestor", commit, "origin/"+branch)
+	if err == nil {
+		return true, nil
+	}
+	var exitErr *processpkg.ExitError
+	if errors.As(err, &exitErr) && exitErr.Code == 1 {
+		return false, nil
+	}
+	return false, err
+}
+
+func (c Client) GitPath(ctx context.Context, name string) (string, error) {
+	if strings.TrimSpace(name) == "" {
+		return "", fmt.Errorf("Git path name must not be empty")
+	}
+	result, err := c.run(ctx, "resolve Git path", "rev-parse", "--git-path", name)
+	if err != nil {
+		return "", err
+	}
+	path := strings.TrimSpace(result.Stdout)
+	if path == "" {
+		return "", fmt.Errorf("Git returned an empty path for %q", name)
+	}
+	if !filepath.IsAbs(path) {
+		path = filepath.Join(c.dir, path)
+	}
+	return filepath.Clean(path), nil
+}
+
 func (c Client) OperationState(ctx context.Context) (OperationState, error) {
 	checks := []struct {
 		state OperationState

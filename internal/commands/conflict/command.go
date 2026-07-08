@@ -11,6 +11,7 @@ import (
 const usage = `Usage:
   gutil conflict <source> <target>
   gutil conflict --status
+  gutil conflict --continue
   gutil conflict --abort`
 
 type Command struct {
@@ -26,6 +27,8 @@ func (c *Command) Run(args []string) int {
 		err = c.Workflow.Status(ctx)
 	case len(args) == 1 && args[0] == "--abort":
 		err = c.Workflow.Abort(ctx)
+	case len(args) == 1 && args[0] == "--continue":
+		err = c.Workflow.Continue(ctx)
 	case len(args) == 2 && validArgument(args[0]) && validArgument(args[1]) && args[0] != args[1]:
 		err = c.Workflow.Prepare(ctx, args[0], args[1])
 	default:

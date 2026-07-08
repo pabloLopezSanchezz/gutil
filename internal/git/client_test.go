@@ -94,3 +94,46 @@ func TestConflictFiles(t *testing.T) {
 		t.Fatalf("files = %#v, err = %v", files, err)
 	}
 }
+
+func TestContinuationGitCommands(t *testing.T) {
+	tests := []struct {
+		name   string
+		stdout string
+		call   func(Client) error
+		args   []string
+	}{
+		{"current branch", "feature/a\n", func(c Client) error { _, err := c.CurrentBranch(context.Background()); return err }, []string{"symbolic-ref", "--quiet", "--short", "HEAD"}},
+		{"current commit", "abc\n", func(c Client) error { _, err := c.CurrentCommit(context.Background()); return err }, []string{"rev-parse", "HEAD"}},
+		{"merge head", "def\n", func(c Client) error { _, err := c.MergeHead(context.Background()); return err }, []string{"rev-parse", "MERGE_HEAD"}},
+		{"staged files", "a.txt\n", func(c Client) error { _, err := c.StagedFiles(context.Background()); return err }, []string{"diff", "--cached", "--name-only", "--diff-filter=ACDMR"}},
+		{"commit", "", func(c Client) error { return c.Commit(context.Background(), "message") }, []string{"commit", "-m", "message"}},
+		{"push", "", func(c Client) error { return c.PushOrigin(context.Background(), "feature/a") }, []string{"push", "origin", "feature/a"}},
+		{"git path", ".git/gutil/conflict-state.json\n", func(c Client) error {
+			_, err := c.GitPath(context.Background(), "gutil/conflict-state.json")
+			return err
+		}, []string{"rev-parse", "--git-path", "gutil/conflict-state.json"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			runner := &recordedRunner{results: []processpkg.Result{{Stdout: tt.stdout}}}
+			if err := tt.call(NewClient(runner, "/repo")); err != nil {
+				t.Fatal(err)
+			}
+			if got := runner.commands[0].Args; !reflect.DeepEqual(got, tt.args) {
+				t.Fatalf("args = %#v, want %#v", got, tt.args)
+			}
+		})
+	}
+}
+
+func TestRemoteContainsTreatsExitOneAsNotContained(t *testing.T) {
+	runner := &recordedRunner{errors: []error{&processpkg.ExitError{Code: 1}}}
+	contained, err := NewClient(runner, "/repo").RemoteContains(context.Background(), "abc", "feature/a")
+	if err != nil || contained {
+		t.Fatalf("contained = %v, err = %v", contained, err)
+	}
+	want := []string{"merge-base", "--is-ancestor", "abc", "origin/feature/a"}
+	if got := runner.commands[0].Args; !reflect.DeepEqual(got, want) {
+		t.Fatalf("args = %#v", got)
+	}
+}

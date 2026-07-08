@@ -39,6 +39,7 @@ go install github.com/pablo/gutil/cmd/gutil@latest
 ```text
 gutil conflict <source> <target>
 gutil conflict --status
+gutil conflict --continue
 gutil conflict --abort
 gutil version
 gutil help
@@ -61,6 +62,22 @@ Before making changes, gUtil requires a clean working tree, including no untrack
 5. Lists conflicting files and opens Visual Studio Code when conflicts exist.
 
 If the `code` launcher is unavailable, the conflict state is preserved and gUtil tells you to open the repository manually. A clean merge is also left uncommitted for review.
+
+### Continue after resolving conflicts
+
+Resolve every conflict in Visual Studio Code and ensure the resolved files are already staged. gUtil deliberately does not run `git add`.
+
+```sh
+gutil conflict --continue
+```
+
+The command verifies that the merge was started by gUtil, checks that no unresolved or unstaged conflict files remain, and creates a commit such as:
+
+```text
+[gUtil] Conflict Resolution - 4 files fixed.
+```
+
+It then runs `git push origin <source-branch>`. If commit succeeds but push fails, run `gutil conflict --continue` again to retry only the push; it will not create a second commit.
 
 ## Recovery
 
