@@ -209,20 +209,85 @@ func TestPrepareStopsForDirtyTree(t *testing.T) {
 	}
 }
 
+func TestPrepareStopsWhenGUtilWorkflowAlreadyExists(t *testing.T) {
+	g := &fakeGit{clean: true}
+	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
+	if code := command.Run([]string{"feature/b", "main"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if strings.Contains(strings.Join(g.calls, ","), "fetch") {
+		t.Fatalf("fetch attempted despite existing workflow: %v", g.calls)
+	}
+	if !strings.Contains(stderr.String(), "already exists") || !strings.Contains(stderr.String(), "continue or abort") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestPrepareReportsMissingBranchBeforeCheckout(t *testing.T) {
+	g := &fakeGit{clean: true, locations: map[string]gitpkg.BranchLocation{"feature/a": gitpkg.Local}}
+	command, _, stderr, _ := newCommand(t, g, &fakeEditor{})
+	if code := command.Run([]string{"feature/a", "missing"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if strings.Contains(strings.Join(g.calls, ","), "checkout") {
+		t.Fatalf("checkout attempted for missing branch: %v", g.calls)
+	}
+	if !strings.Contains(stderr.String(), `branch "missing" does not exist locally or in origin`) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestStatusAndAbort(t *testing.T) {
-	g := &fakeGit{status: "On branch feature/a\n", conflicts: []string{"file.txt"}, state: gitpkg.MergeOperation}
-	command, stdout, _, _ := newCommand(t, g, &fakeEditor{})
+	g := &fakeGit{status: "On branch feature/a\n", conflicts: []string{"file.txt"}, state: gitpkg.MergeOperation, branch: "feature/a", currentCommit: "source", mergeHead: "target"}
+	command, stdout, _, store := newCommand(t, g, &fakeEditor{})
 	if code := command.Run([]string{"--status"}); code != 0 {
 		t.Fatalf("status code = %d", code)
 	}
 	if !strings.Contains(stdout.String(), "On branch") || !strings.Contains(stdout.String(), "file.txt") {
 		t.Fatalf("stdout = %q", stdout.String())
 	}
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
 	if code := command.Run([]string{"--abort"}); code != 0 {
 		t.Fatalf("abort code = %d", code)
 	}
 	if !strings.Contains(strings.Join(g.calls, ","), "abort") {
 		t.Fatalf("calls = %v", g.calls)
+	}
+}
+
+func TestAbortRefusesMergeNotStartedByGUtil(t *testing.T) {
+	g := &fakeGit{state: gitpkg.MergeOperation}
+	command, _, stderr, _ := newCommand(t, g, &fakeEditor{})
+	if code := command.Run([]string{"--abort"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if strings.Contains(strings.Join(g.calls, ","), "abort") {
+		t.Fatalf("abort attempted for non-gUtil merge: %v", g.calls)
+	}
+	if !strings.Contains(stderr.String(), "no gUtil conflict workflow") || !strings.Contains(stderr.String(), "git merge --abort") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestAbortRefusesMismatchedGUtilStateBeforeGitAbort(t *testing.T) {
+	g := &fakeGit{state: gitpkg.MergeOperation, branch: "other", currentCommit: "source", mergeHead: "target"}
+	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
+	if code := command.Run([]string{"--abort"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if strings.Contains(strings.Join(g.calls, ","), "abort") {
+		t.Fatalf("abort attempted with mismatched state: %v", g.calls)
+	}
+	if !strings.Contains(stderr.String(), `current branch "other" does not match gUtil source branch "feature/a"`) {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 
@@ -282,6 +347,23 @@ func TestContinueListsUnresolvedFiles(t *testing.T) {
 	}
 	if g.commitMessage != "" {
 		t.Fatalf("commit attempted: %q", g.commitMessage)
+	}
+}
+
+func TestContinueRefusesWrongBranchBeforeCommit(t *testing.T) {
+	g := &fakeGit{state: gitpkg.MergeOperation, branch: "other", currentCommit: "source", mergeHead: "target"}
+	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"a.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
+	if code := command.Run([]string{"--continue"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if g.commitMessage != "" {
+		t.Fatalf("commit attempted: %q", g.commitMessage)
+	}
+	if !strings.Contains(stderr.String(), `current branch "other" does not match gUtil source branch "feature/a"`) {
+		t.Fatalf("stderr = %q", stderr.String())
 	}
 }
 

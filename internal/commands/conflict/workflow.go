@@ -372,18 +372,28 @@ func (w Workflow) Abort(ctx context.Context) error {
 	if err := w.Git.ValidateRepository(ctx); err != nil {
 		return err
 	}
-	state, err := w.Git.OperationState(ctx)
-	if err != nil {
-		return err
-	}
-	if state != gitpkg.MergeOperation {
-		return fmt.Errorf("no merge is currently in progress")
-	}
-	if err := w.Git.AbortMerge(ctx); err != nil {
-		return err
-	}
 	store, err := w.stateStore(ctx)
 	if err != nil {
+		return err
+	}
+	savedState, err := store.Load()
+	if errors.Is(err, ErrStateNotFound) {
+		return fmt.Errorf("no gUtil conflict workflow is available to abort; this merge was not started by gUtil. Use 'git merge --abort' if you intentionally want to abort the manual merge")
+	}
+	if err != nil {
+		return err
+	}
+	operation, err := w.Git.OperationState(ctx)
+	if err != nil {
+		return err
+	}
+	if operation != gitpkg.MergeOperation {
+		return fmt.Errorf("no merge is currently in progress")
+	}
+	if err := w.validateIdentity(ctx, savedState, true); err != nil {
+		return err
+	}
+	if err := w.Git.AbortMerge(ctx); err != nil {
 		return err
 	}
 	if err := store.Remove(); err != nil {

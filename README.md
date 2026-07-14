@@ -88,7 +88,7 @@ Open a new PowerShell terminal after installation.
 macOS/Linux:
 
 ```sh
-GUTIL_VERSION=v0.1.0 curl -fsSL https://raw.githubusercontent.com/pabloLopezSanchezz/gutil/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/pabloLopezSanchezz/gutil/main/scripts/install.sh | env GUTIL_VERSION=v0.1.0 sh
 ```
 
 Windows PowerShell:
@@ -103,7 +103,7 @@ irm https://raw.githubusercontent.com/pabloLopezSanchezz/gutil/main/scripts/inst
 macOS/Linux:
 
 ```sh
-GUTIL_INSTALL_DIR="$HOME/bin" curl -fsSL https://raw.githubusercontent.com/pabloLopezSanchezz/gutil/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/pabloLopezSanchezz/gutil/main/scripts/install.sh | env GUTIL_INSTALL_DIR="$HOME/bin" sh
 ```
 
 Windows PowerShell:

@@ -216,6 +216,111 @@ func TestIntegrationNewBranchPreservesProtectedSource(t *testing.T) {
 	}
 }
 
+func TestIntegrationRefusesUntrackedWorkingTreeBeforeChangingBranches(t *testing.T) {
+	repo, _ := newConflictRepository(t)
+	startBranch := strings.TrimSpace(runGit(t, repo, "branch", "--show-current"))
+	writeFile(t, filepath.Join(repo, "local-only.txt"), "do not touch\n")
+	command, _, stderr := newIntegrationCommand(repo, &fakeEditor{})
+
+	if code := command.Run([]string{"feature/a", "develop"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if branch := strings.TrimSpace(runGit(t, repo, "branch", "--show-current")); branch != startBranch {
+		t.Fatalf("branch changed despite dirty tree: %q -> %q", startBranch, branch)
+	}
+	if !strings.Contains(stderr.String(), "working tree must be completely clean") || !strings.Contains(stderr.String(), "local-only.txt") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestIntegrationReportsMissingBranchClearly(t *testing.T) {
+	repo, _ := newConflictRepository(t)
+	command, _, stderr := newIntegrationCommand(repo, &fakeEditor{})
+
+	if code := command.Run([]string{"feature/a", "does-not-exist"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.Contains(stderr.String(), `branch "does-not-exist" does not exist locally or in origin`) {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func TestIntegrationContinueAndAbortRefuseManualMerge(t *testing.T) {
+	repo, _ := newConflictRepository(t)
+	runGit(t, repo, "checkout", "feature/a")
+	if output, err := runGitErr(repo, "merge", "--no-commit", "--no-ff", "develop"); err == nil || !strings.Contains(output, "CONFLICT") {
+		t.Fatalf("manual merge output/err = %q/%v", output, err)
+	}
+	command, _, stderr := newIntegrationCommand(repo, &fakeEditor{})
+
+	if code := command.Run([]string{"--continue"}); code != 1 {
+		t.Fatalf("continue code = %d", code)
+	}
+	if !strings.Contains(stderr.String(), "no gUtil conflict workflow is available to continue") {
+		t.Fatalf("continue stderr = %q", stderr.String())
+	}
+	stderr.Reset()
+	if code := command.Run([]string{"--abort"}); code != 1 {
+		t.Fatalf("abort code = %d", code)
+	}
+	if !strings.Contains(stderr.String(), "not started by gUtil") || !strings.Contains(stderr.String(), "git merge --abort") {
+		t.Fatalf("abort stderr = %q", stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(repo, ".git", "MERGE_HEAD")); err != nil {
+		t.Fatalf("manual merge was unexpectedly aborted: %v", err)
+	}
+	runGit(t, repo, "merge", "--abort")
+}
+
+func TestIntegrationStatusOutsideGitRepositoryReportsGitProblem(t *testing.T) {
+	dir := t.TempDir()
+	command, _, stderr := newIntegrationCommand(dir, &fakeEditor{})
+
+	if code := command.Run([]string{"--status"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.Contains(stderr.String(), "git validate repository failed") || !strings.Contains(stderr.String(), "inspect the repository") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
+func newConflictRepository(t *testing.T) (string, string) {
+	t.Helper()
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is unavailable")
+	}
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	repo := filepath.Join(root, "repo")
+	runGit(t, root, "init", "--bare", origin)
+	runGit(t, root, "clone", origin, repo)
+	runGit(t, repo, "config", "user.name", "gutil-test")
+	runGit(t, repo, "config", "user.email", "gutil-test@example.invalid")
+	runGit(t, repo, "checkout", "-b", "main")
+	writeFile(t, filepath.Join(repo, "shared.txt"), "base\n")
+	runGit(t, repo, "add", "shared.txt")
+	runGit(t, repo, "commit", "-m", "initial")
+	runGit(t, repo, "push", "-u", "origin", "main")
+	runGit(t, repo, "checkout", "-b", "develop")
+	writeFile(t, filepath.Join(repo, "shared.txt"), "target\n")
+	runGit(t, repo, "commit", "-am", "target change")
+	runGit(t, repo, "push", "-u", "origin", "develop")
+	runGit(t, repo, "checkout", "main")
+	runGit(t, repo, "checkout", "-b", "feature/a")
+	writeFile(t, filepath.Join(repo, "shared.txt"), "source\n")
+	runGit(t, repo, "commit", "-am", "source change")
+	runGit(t, repo, "push", "-u", "origin", "feature/a")
+	return repo, origin
+}
+
+func newIntegrationCommand(repo string, editor Editor) (*Command, *bytes.Buffer, *bytes.Buffer) {
+	var stdout, stderr bytes.Buffer
+	runner := processpkg.OSRunner{}
+	printer := output.Printer{Stdout: &stdout, Stderr: &stderr}
+	workflow := Workflow{Git: gitpkg.NewClient(runner, repo), Editor: editor, Output: printer}
+	return &Command{Workflow: workflow, Output: printer}, &stdout, &stderr
+}
+
 func runGit(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 	cmd := exec.Command("git", args...)
@@ -225,6 +330,13 @@ func runGit(t *testing.T, dir string, args ...string) string {
 		t.Fatalf("git %s: %v\n%s", strings.Join(args, " "), err, output)
 	}
 	return string(output)
+}
+
+func runGitErr(dir string, args ...string) (string, error) {
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	output, err := cmd.CombinedOutput()
+	return string(output), err
 }
 
 func writeFile(t *testing.T, path, content string) {
