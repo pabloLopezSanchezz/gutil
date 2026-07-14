@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	gitpkg "github.com/pablo/gutil/internal/git"
-	"github.com/pablo/gutil/internal/output"
-	processpkg "github.com/pablo/gutil/internal/process"
+	gitpkg "github.com/pabloLopezSanchezz/gutil/internal/git"
+	"github.com/pabloLopezSanchezz/gutil/internal/output"
+	processpkg "github.com/pabloLopezSanchezz/gutil/internal/process"
 )
 
 func TestIntegrationConflictStatusAndAbort(t *testing.T) {

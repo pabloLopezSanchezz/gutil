@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-REPOSITORY="pablo/gutil"
+REPOSITORY="pabloLopezSanchezz/gutil"
 INSTALL_DIR="${GUTIL_INSTALL_DIR:-$HOME/.local/bin}"
 
 if [ -n "${GUTIL_VERSION:-}" ]; then

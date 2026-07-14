@@ -3,7 +3,7 @@ package conflict
 import (
 	"context"
 
-	processpkg "github.com/pablo/gutil/internal/process"
+	processpkg "github.com/pabloLopezSanchezz/gutil/internal/process"
 )
 
 type CodeEditor struct {

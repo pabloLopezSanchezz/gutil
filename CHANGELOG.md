@@ -2,7 +2,7 @@
 
 All notable changes follow semantic versioning.
 
-## Unreleased
+## [v0.1.0] - 2026-07-15
 
 ### Added
 

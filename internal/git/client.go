@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	processpkg "github.com/pablo/gutil/internal/process"
+	processpkg "github.com/pabloLopezSanchezz/gutil/internal/process"
 )
 
 var ErrInvalidBranch = errors.New("invalid branch name")

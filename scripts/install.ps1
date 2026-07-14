@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 
-$Repository = "pablo/gutil"
+$Repository = "pabloLopezSanchezz/gutil"
 $InstallDir = if ($env:GUTIL_INSTALL_DIR) { $env:GUTIL_INSTALL_DIR } else { Join-Path $HOME ".local\bin" }
 $Version = $env:GUTIL_VERSION
 if (-not $Version) {

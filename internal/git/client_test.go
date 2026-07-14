@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"testing"
 
-	processpkg "github.com/pablo/gutil/internal/process"
+	processpkg "github.com/pabloLopezSanchezz/gutil/internal/process"
 )
 
 type recordedRunner struct {

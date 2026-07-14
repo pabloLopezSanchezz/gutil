@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pablo/gutil/internal/output"
+	"github.com/pabloLopezSanchezz/gutil/internal/output"
 )
 
 const usage = `Usage:

@@ -3,11 +3,11 @@ package main
 import (
 	"os"
 
-	"github.com/pablo/gutil/internal/cli"
-	"github.com/pablo/gutil/internal/commands/conflict"
-	gitpkg "github.com/pablo/gutil/internal/git"
-	"github.com/pablo/gutil/internal/output"
-	processpkg "github.com/pablo/gutil/internal/process"
+	"github.com/pabloLopezSanchezz/gutil/internal/cli"
+	"github.com/pabloLopezSanchezz/gutil/internal/commands/conflict"
+	gitpkg "github.com/pabloLopezSanchezz/gutil/internal/git"
+	"github.com/pabloLopezSanchezz/gutil/internal/output"
+	processpkg "github.com/pabloLopezSanchezz/gutil/internal/process"
 )
 
 var version = "dev"

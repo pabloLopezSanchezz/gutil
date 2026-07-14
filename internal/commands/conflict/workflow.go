@@ -7,8 +7,8 @@ import (
 	"strings"
 	"time"
 
-	gitpkg "github.com/pablo/gutil/internal/git"
-	"github.com/pablo/gutil/internal/output"
+	gitpkg "github.com/pabloLopezSanchezz/gutil/internal/git"
+	"github.com/pabloLopezSanchezz/gutil/internal/output"
 )
 
 type GitService interface {
