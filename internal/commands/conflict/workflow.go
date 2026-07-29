@@ -186,7 +186,7 @@ func (w Workflow) continueResolving(ctx context.Context, store StateStore, state
 		return err
 	}
 	if operation != gitpkg.MergeOperation {
-		return fmt.Errorf("the gUtil state exists, but its merge is not active")
+		return fmt.Errorf("the gUtil state exists, but its merge is not active; run 'gutil conflict --abort' to clear this stale workflow")
 	}
 	if err := w.validateIdentity(ctx, state, true); err != nil {
 		return err
@@ -388,7 +388,14 @@ func (w Workflow) Abort(ctx context.Context) error {
 		return err
 	}
 	if operation != gitpkg.MergeOperation {
-		return fmt.Errorf("no merge is currently in progress")
+		if operation == gitpkg.NoOperation && savedState.Phase == PhaseResolving {
+			if err := store.Remove(); err != nil {
+				return err
+			}
+			w.Output.Success("No Git merge is active. Cleared the stale gUtil conflict workflow.")
+			return nil
+		}
+		return fmt.Errorf("no merge is currently in progress; the gUtil workflow was kept because it is not a stale resolving workflow")
 	}
 	if err := w.validateIdentity(ctx, savedState, true); err != nil {
 		return err

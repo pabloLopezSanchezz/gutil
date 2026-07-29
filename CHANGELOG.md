@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## [v0.1.2] - 2026-07-29
+
+### Fixed
+
+- `gutil conflict --abort` now clears a stale gUtil resolving workflow when a merge was already aborted outside gUtil.
+- `gutil conflict --continue` now explains how to clear that stale workflow safely.
+
+### Tests
+
+- Added unit and end-to-end regression coverage for stale workflow cleanup after a manual Git merge abort.
+
 ## [v0.1.1] - 2026-07-15
 
 ### Fixed

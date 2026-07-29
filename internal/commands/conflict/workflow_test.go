@@ -291,6 +291,42 @@ func TestAbortRefusesMismatchedGUtilStateBeforeGitAbort(t *testing.T) {
 	}
 }
 
+func TestAbortClearsStaleResolvingWorkflowWithoutAbortingGit(t *testing.T) {
+	g := &fakeGit{state: gitpkg.NoOperation}
+	command, stdout, _, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
+
+	if code := command.Run([]string{"--abort"}); code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	if strings.Contains(strings.Join(g.calls, ","), "abort") {
+		t.Fatalf("git merge --abort was unexpectedly invoked: %v", g.calls)
+	}
+	if _, err := store.Load(); !errors.Is(err, ErrStateNotFound) {
+		t.Fatalf("stale state remains: %v", err)
+	}
+	if !strings.Contains(stdout.String(), "Cleared the stale gUtil conflict workflow") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+}
+
+func TestContinueExplainsHowToClearStaleResolvingWorkflow(t *testing.T) {
+	g := &fakeGit{state: gitpkg.NoOperation}
+	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
+
+	if code := command.Run([]string{"--continue"}); code != 1 {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.Contains(stderr.String(), "gutil conflict --abort") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+}
+
 func TestStatusReportsCommittedGUtilStateWithoutUnmergedFiles(t *testing.T) {
 	g := &fakeGit{status: "On branch feature/a\n"}
 	command, stdout, _, store := newCommand(t, g, &fakeEditor{})

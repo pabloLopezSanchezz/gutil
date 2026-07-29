@@ -76,6 +76,37 @@ func TestIntegrationConflictStatusAndAbort(t *testing.T) {
 	}
 }
 
+func TestIntegrationAbortClearsStaleGUtilWorkflowAfterManualMergeAbort(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git is unavailable")
+	}
+	repo, _ := newConflictRepository(t)
+	command, stdout, stderr := newIntegrationCommand(repo, &fakeEditor{})
+
+	if code := command.Run([]string{"feature/a", "develop"}); code != 0 {
+		t.Fatalf("prepare code = %d: %s", code, stderr.String())
+	}
+	// Simulate a user or GUI aborting the Git merge directly. This leaves only
+	// gUtil's workflow file behind, which --abort must safely clear.
+	runGit(t, repo, "merge", "--abort")
+	if code := command.Run([]string{"--abort"}); code != 0 {
+		t.Fatalf("stale abort code = %d: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Cleared the stale gUtil conflict workflow") {
+		t.Fatalf("stdout = %q", stdout.String())
+	}
+	statePath := strings.TrimSpace(runGit(t, repo, "rev-parse", "--git-path", "gutil/conflict-state.json"))
+	if !filepath.IsAbs(statePath) {
+		statePath = filepath.Join(repo, statePath)
+	}
+	if _, err := os.Stat(statePath); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("stale state remains: %v", err)
+	}
+	if status := runGit(t, repo, "status", "--porcelain"); status != "" {
+		t.Fatalf("status after stale abort = %q", status)
+	}
+}
+
 func TestIntegrationContinueRetriesRejectedPushWithoutSecondCommit(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git is unavailable")
