@@ -2,6 +2,16 @@
 
 All notable changes follow semantic versioning.
 
+## [v0.1.4] - 2026-07-29
+
+### Added
+
+- Added `gutil update` to download, checksum-verify, and install the latest release for macOS, Linux, and Windows.
+
+### Tests
+
+- Added update coverage for successful replacement, Windows deferred replacement, current-version detection, and checksum failures.
+
 ## [v0.1.3] - 2026-07-29
 
 ### Fixed

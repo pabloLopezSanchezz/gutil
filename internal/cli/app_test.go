@@ -24,7 +24,7 @@ func TestRunHelpAndVersion(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			code := Run(tt.args, tt.version, &stdout, &stderr, nil)
+			code := Run(tt.args, tt.version, &stdout, &stderr, nil, nil)
 			if code != tt.wantCode {
 				t.Fatalf("Run() code = %d, want %d", code, tt.wantCode)
 			}
@@ -47,11 +47,29 @@ func (s *stubConflict) Run(args []string) int {
 
 func TestRunDispatchesConflictArguments(t *testing.T) {
 	command := &stubConflict{code: 7}
-	code := Run([]string{"conflict", "feature/a", "develop"}, "dev", &bytes.Buffer{}, &bytes.Buffer{}, command)
+	code := Run([]string{"conflict", "feature/a", "develop"}, "dev", &bytes.Buffer{}, &bytes.Buffer{}, command, nil)
 	if code != 7 {
 		t.Fatalf("Run() code = %d, want 7", code)
 	}
 	if got := strings.Join(command.args, " "); got != "feature/a develop" {
 		t.Fatalf("conflict args = %q", got)
+	}
+}
+
+type stubUpdate struct {
+	version string
+	code    int
+}
+
+func (s *stubUpdate) Run(version string) int {
+	s.version = version
+	return s.code
+}
+
+func TestRunDispatchesUpdate(t *testing.T) {
+	command := &stubUpdate{code: 4}
+	code := Run([]string{"update"}, "v0.1.0", &bytes.Buffer{}, &bytes.Buffer{}, nil, command)
+	if code != 4 || command.version != "v0.1.0" {
+		t.Fatalf("code/version = %d/%q", code, command.version)
 	}
 }

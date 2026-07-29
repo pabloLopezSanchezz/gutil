@@ -139,6 +139,14 @@ You can also print the command list:
 gutil help
 ```
 
+## Update gUtil
+
+```sh
+gutil update
+```
+
+This downloads the latest release for the current operating system, verifies its checksum, and replaces the installed executable. On Windows, the replacement is scheduled after gUtil exits; open a new PowerShell terminal before using the updated command.
+
 ## Commands
 
 ```text
@@ -148,6 +156,7 @@ gutil conflict <source> <target> --newBranch
 gutil conflict --status
 gutil conflict --continue
 gutil conflict --abort
+gutil update
 gutil version
 gutil help
 ```
