@@ -2,6 +2,16 @@
 
 All notable changes follow semantic versioning.
 
+## [v0.1.3] - 2026-07-29
+
+### Fixed
+
+- Fixed the Windows installer on Windows PowerShell 5.1 by using supported processor-architecture environment variables instead of an unavailable .NET property.
+
+### Tests
+
+- Added regression coverage ensuring the Windows installer remains compatible with Windows PowerShell 5.1.
+
 ## [v0.1.2] - 2026-07-29
 
 ### Fixed

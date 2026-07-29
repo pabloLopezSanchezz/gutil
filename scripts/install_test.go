@@ -12,7 +12,7 @@ func TestInstallersVerifyChecksumsAndSupportOverrides(t *testing.T) {
 		required []string
 	}{
 		{"install.sh", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "sha256", "mktemp", "Darwin", "Linux", "arm64", "amd64"}},
-		{"install.ps1", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "Get-FileHash", "Expand-Archive", "User", "ARM64", "AMD64"}},
+		{"install.ps1", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "Get-FileHash", "Expand-Archive", "User", "PROCESSOR_ARCHITEW6432", "PROCESSOR_ARCHITECTURE", "ARM64", "AMD64"}},
 	}
 	for _, tt := range tests {
 		content, err := os.ReadFile(tt.file)
@@ -24,5 +24,15 @@ func TestInstallersVerifyChecksumsAndSupportOverrides(t *testing.T) {
 				t.Errorf("%s does not contain %q", tt.file, required)
 			}
 		}
+	}
+}
+
+func TestWindowsInstallerSupportsWindowsPowerShell(t *testing.T) {
+	content, err := os.ReadFile("install.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(content), "RuntimeInformation") {
+		t.Fatal("install.ps1 must not depend on RuntimeInformation, which is unavailable in Windows PowerShell 5.1")
 	}
 }

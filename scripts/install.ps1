@@ -9,8 +9,15 @@ if (-not $Version) {
     $Version = $Release.tag_name
 }
 
-$Architecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
-$Arch = switch ($Architecture) {
+$Architecture = $env:PROCESSOR_ARCHITEW6432
+if (-not $Architecture) {
+    $Architecture = $env:PROCESSOR_ARCHITECTURE
+}
+if (-not $Architecture) {
+    throw "Could not determine the Windows processor architecture."
+}
+
+$Arch = switch ($Architecture.ToUpperInvariant()) {
     "ARM64" { "arm64" }
     "X64" { "amd64" }
     "AMD64" { "amd64" }
