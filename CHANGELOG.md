@@ -2,6 +2,19 @@
 
 All notable changes follow semantic versioning.
 
+## [v0.1.5] - 2026-08-03
+
+### Fixed
+
+- The Windows installer now reports progress instead of appearing to hang during downloads.
+- Added TLS 1.2 compatibility and download timeouts with actionable GitHub connectivity errors.
+- The installer now updates the current PowerShell `PATH` and verifies `gutil.exe` before reporting success.
+
+### Tests
+
+- Added an end-to-end Windows CI installation check using the published release artifacts.
+- Added regression coverage for progress reporting, timeouts, TLS, and actionable network failures.
+
 ## [v0.1.4] - 2026-07-29
 
 ### Added

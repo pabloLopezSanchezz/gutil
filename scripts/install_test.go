@@ -12,7 +12,7 @@ func TestInstallersVerifyChecksumsAndSupportOverrides(t *testing.T) {
 		required []string
 	}{
 		{"install.sh", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "sha256", "mktemp", "Darwin", "Linux", "arm64", "amd64"}},
-		{"install.ps1", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "Get-FileHash", "Expand-Archive", "User", "PROCESSOR_ARCHITEW6432", "PROCESSOR_ARCHITECTURE", "ARM64", "AMD64"}},
+		{"install.ps1", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "Get-FileHash", "Expand-Archive", "User", "PROCESSOR_ARCHITEW6432", "PROCESSOR_ARCHITECTURE", "ARM64", "AMD64", "Tls12", "UseBasicParsing", "TimeoutSec", "Downloading gUtil", "Verifying checksum", "Installed and verified", "$env:Path"}},
 	}
 	for _, tt := range tests {
 		content, err := os.ReadFile(tt.file)
@@ -23,6 +23,18 @@ func TestInstallersVerifyChecksumsAndSupportOverrides(t *testing.T) {
 			if !strings.Contains(string(content), required) {
 				t.Errorf("%s does not contain %q", tt.file, required)
 			}
+		}
+	}
+}
+
+func TestWindowsInstallerReportsNetworkFailuresClearly(t *testing.T) {
+	content, err := os.ReadFile("install.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, required := range []string{"Check access to github.com and try again", "Check access to api.github.com and try again"} {
+		if !strings.Contains(string(content), required) {
+			t.Errorf("install.ps1 does not contain actionable error %q", required)
 		}
 	}
 }

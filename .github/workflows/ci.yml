@@ -28,6 +28,13 @@ jobs:
           git diff --exit-code
       - run: go vet ./...
       - run: go test ./...
+      - name: Run Windows installer end to end
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $env:GUTIL_INSTALL_DIR = Join-Path $env:RUNNER_TEMP 'gutil-install-test'
+          & ./scripts/install.ps1
+          gutil version
       - name: Run race detector
         if: runner.os != 'Windows'
         run: go test -race ./...
