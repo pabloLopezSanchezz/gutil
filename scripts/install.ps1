@@ -110,7 +110,7 @@ try {
         if ($_.Exception.Message -match "Access is denied") {
             throw "Windows blocked $InstalledBinary. Run Unblock-File -Path '$InstalledBinary' and retry. If access is still denied, a corporate AppLocker, Defender, or endpoint-security policy is blocking unsigned executables; contact your IT team with this path."
         }
-        throw "Could not run $InstalledBinary: $($_.Exception.Message)"
+        throw "Could not run ${InstalledBinary}: $($_.Exception.Message)"
     }
     if ($LASTEXITCODE -ne 0) {
         throw "The downloaded executable returned exit code $LASTEXITCODE during verification."

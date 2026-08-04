@@ -39,6 +39,16 @@ func TestWindowsInstallerReportsNetworkFailuresClearly(t *testing.T) {
 	}
 }
 
+func TestWindowsInstallerUsesValidVariableDelimitersInErrorMessages(t *testing.T) {
+	content, err := os.ReadFile("install.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(content), "Could not run ${InstalledBinary}:") {
+		t.Fatal("install.ps1 must delimit InstalledBinary before a colon in an interpolated error message")
+	}
+}
+
 func TestWindowsInstallerSupportsWindowsPowerShell(t *testing.T) {
 	content, err := os.ReadFile("install.ps1")
 	if err != nil {
