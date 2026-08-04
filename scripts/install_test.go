@@ -12,7 +12,7 @@ func TestInstallersVerifyChecksumsAndSupportOverrides(t *testing.T) {
 		required []string
 	}{
 		{"install.sh", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "sha256", "mktemp", "Darwin", "Linux", "arm64", "amd64"}},
-		{"install.ps1", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "Get-FileHash", "Expand-Archive", "User", "PROCESSOR_ARCHITEW6432", "PROCESSOR_ARCHITECTURE", "ARM64", "AMD64", "Tls12", "UseBasicParsing", "TimeoutSec", "Downloading gUtil", "Verifying checksum", "Installed and verified", "$env:Path"}},
+		{"install.ps1", []string{"GUTIL_VERSION", "GUTIL_INSTALL_DIR", "checksums.txt", "Get-FileHash", "Expand-Archive", "User", "PROCESSOR_ARCHITEW6432", "PROCESSOR_ARCHITECTURE", "ARM64", "AMD64", "Tls12", "UseBasicParsing", "TimeoutSec", "Downloading gUtil", "Verifying checksum", "Installed and verified", "$env:Path", "Unblock-File", "AppLocker", "endpoint-security"}},
 	}
 	for _, tt := range tests {
 		content, err := os.ReadFile(tt.file)

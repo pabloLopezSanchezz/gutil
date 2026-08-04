@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## [v0.1.6] - 2026-08-04
+
+### Fixed
+
+- The Windows installer now removes the downloaded-file security mark before executing `gutil.exe`.
+- If a corporate security policy still blocks the executable, the installer reports the exact recovery command and escalation guidance.
+
+### Tests
+
+- Added regression coverage for the Windows unblocking and corporate-policy recovery path.
+
 ## [v0.1.5] - 2026-08-03
 
 ### Fixed
