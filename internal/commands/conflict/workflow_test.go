@@ -209,10 +209,30 @@ func TestPrepareStopsForDirtyTree(t *testing.T) {
 	}
 }
 
-func TestPrepareStopsWhenGUtilWorkflowAlreadyExists(t *testing.T) {
-	g := &fakeGit{clean: true}
+func TestPrepareClearsStaleResolvingWorkflowBeforeStarting(t *testing.T) {
+	g := &fakeGit{clean: true, locations: map[string]gitpkg.BranchLocation{"feature/a": gitpkg.Local, "develop": gitpkg.Local}, branch: "feature/a", currentCommit: "source"}
 	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
 	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseResolving}); err != nil {
+		t.Fatal(err)
+	}
+	if code := command.Run([]string{"feature/a", "develop"}); code != 0 {
+		t.Fatalf("code = %d", code)
+	}
+	if !strings.Contains(strings.Join(g.calls, ","), "fetch") {
+		t.Fatalf("new workflow was not started: %v", g.calls)
+	}
+	if !strings.Contains(stderr.String(), "Cleared the stale gUtil conflict workflow before starting a new one") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+	if _, err := store.Load(); !errors.Is(err, ErrStateNotFound) {
+		t.Fatalf("stale state remains: %v", err)
+	}
+}
+
+func TestPrepareStopsWhenCommittedGUtilWorkflowAlreadyExists(t *testing.T) {
+	g := &fakeGit{clean: true}
+	command, _, stderr, store := newCommand(t, g, &fakeEditor{})
+	if err := store.Save(ConflictState{Version: 2, SourceBranch: "feature/a", TargetBranch: "develop", SourceCommit: "source", MergeCommit: "target", ConflictFiles: []string{"file.txt"}, Phase: PhaseCommitted, Commit: "resolved"}); err != nil {
 		t.Fatal(err)
 	}
 	if code := command.Run([]string{"feature/b", "main"}); code != 1 {

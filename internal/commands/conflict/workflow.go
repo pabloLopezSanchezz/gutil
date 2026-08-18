@@ -60,7 +60,22 @@ func (w Workflow) Prepare(ctx context.Context, source, target string, options Pr
 		return err
 	}
 	if exists {
-		return fmt.Errorf("a gUtil conflict workflow already exists; continue or abort it before starting another")
+		state, err := store.Load()
+		if err != nil {
+			return err
+		}
+		operation, err := w.Git.OperationState(ctx)
+		if err != nil {
+			return err
+		}
+		if operation == gitpkg.NoOperation && state.Phase == PhaseResolving {
+			if err := store.Remove(); err != nil {
+				return err
+			}
+			w.Output.Warning("No Git merge is active. Cleared the stale gUtil conflict workflow before starting a new one.")
+		} else {
+			return fmt.Errorf("a gUtil conflict workflow already exists; continue or abort it before starting another")
+		}
 	}
 	if err := w.Git.FetchOrigin(ctx); err != nil {
 		return err

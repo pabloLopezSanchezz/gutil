@@ -2,6 +2,17 @@
 
 All notable changes follow semantic versioning.
 
+## [v0.1.7] - 2026-08-18
+
+### Fixed
+
+- Starting a new conflict workflow now automatically clears a stale resolving gUtil state when a merge was already aborted outside gUtil.
+- A workflow waiting to retry a push is still preserved and cannot be cleared automatically.
+
+### Tests
+
+- Added regression coverage for restarting after a manual merge abort and for preserving committed push-retry state.
+
 ## [v0.1.6] - 2026-08-04
 
 ### Fixed
